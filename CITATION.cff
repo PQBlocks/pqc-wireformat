@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "pqblocks-wire"
+version: "0.1.0"
+license: Apache-2.0
+repository-code: "https://github.com/PQBlocks/pqc-wireformat"
+authors:
+  - name: "The PQBlocks Authors"
+keywords:
+  - post-quantum
+  - ml-kem
+  - ml-dsa
+  - slh-dsa
+  - wire-format
+  - serialization
+  - composite-signatures
+  - hybrid-key-exchange
+  - liboqs
+abstract: "Length-prefixed container format (PQCWF1) for ML-KEM ciphertexts and ML-DSA / SLH-DSA signatures, with thin wrappers over liboqs-python and pyca/cryptography; it implements no primitive itself."

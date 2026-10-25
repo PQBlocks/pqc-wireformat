@@ -1,0 +1,206 @@
+{
+  "algo": "pqblocks-wire",
+  "timestamp": "2026-10-13T12:05:35Z",
+  "hardware": {
+    "cpu_model": "Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz",
+    "cpu_count": "8",
+    "python_version": "3.14.7",
+    "platform": "Linux-7.2.6-1-cachyos-x86_64-with-glibc2.44",
+    "architecture": "x86_64"
+  },
+  "generated_by": "benchmarks/bench_core_ops.py",
+  "summary": {
+    "mlkem": {
+      "ML-KEM-512": {
+        "keygen": {
+          "median_ms": 0.018,
+          "mean_ms": 0.019,
+          "iterations": 100
+        },
+        "encaps": {
+          "median_ms": 0.021,
+          "mean_ms": 0.021,
+          "iterations": 100
+        },
+        "decaps": {
+          "median_ms": 0.041,
+          "mean_ms": 0.042,
+          "iterations": 100
+        }
+      },
+      "ML-KEM-768": {
+        "keygen": {
+          "median_ms": 0.023,
+          "mean_ms": 0.023,
+          "iterations": 100
+        },
+        "encaps": {
+          "median_ms": 0.024,
+          "mean_ms": 0.025,
+          "iterations": 100
+        },
+        "decaps": {
+          "median_ms": 0.05,
+          "mean_ms": 0.054,
+          "iterations": 100
+        }
+      },
+      "ML-KEM-1024": {
+        "keygen": {
+          "median_ms": 0.027,
+          "mean_ms": 0.029,
+          "iterations": 100
+        },
+        "encaps": {
+          "median_ms": 0.031,
+          "mean_ms": 0.034,
+          "iterations": 100
+        },
+        "decaps": {
+          "median_ms": 0.059,
+          "mean_ms": 0.066,
+          "iterations": 100
+        }
+      },
+      "ML-KEM-512-repeat": {
+        "keygen": {
+          "median_ms": 0.018,
+          "mean_ms": 0.02,
+          "iterations": 100
+        },
+        "encaps": {
+          "median_ms": 0.019,
+          "mean_ms": 0.021,
+          "iterations": 100
+        },
+        "decaps": {
+          "median_ms": 0.038,
+          "mean_ms": 0.042,
+          "iterations": 100
+        }
+      }
+    },
+    "mldsa": {
+      "ML-DSA-44": {
+        "keygen": {
+          "median_ms": 0.036,
+          "mean_ms": 0.037,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 0.066,
+          "mean_ms": 0.082,
+          "iterations": 100
+        }
+      },
+      "ML-DSA-65": {
+        "keygen": {
+          "median_ms": 0.056,
+          "mean_ms": 0.057,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 0.107,
+          "mean_ms": 0.134,
+          "iterations": 100
+        }
+      },
+      "ML-DSA-87": {
+        "keygen": {
+          "median_ms": 0.079,
+          "mean_ms": 0.082,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 0.144,
+          "mean_ms": 0.169,
+          "iterations": 100
+        }
+      },
+      "ML-DSA-44-repeat": {
+        "keygen": {
+          "median_ms": 0.036,
+          "mean_ms": 0.039,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 0.072,
+          "mean_ms": 0.091,
+          "iterations": 100
+        }
+      }
+    },
+    "slhdsa": {
+      "SLH_DSA_PURE_SHA2_128S": {
+        "keygen": {
+          "median_ms": 69.07,
+          "mean_ms": 69.771,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 534.856,
+          "mean_ms": 539.592,
+          "iterations": 100
+        }
+      },
+      "SLH_DSA_PURE_SHA2_192S": {
+        "keygen": {
+          "median_ms": 102.019,
+          "mean_ms": 103.339,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 956.307,
+          "mean_ms": 962.914,
+          "iterations": 100
+        }
+      },
+      "SLH_DSA_PURE_SHA2_256S": {
+        "keygen": {
+          "median_ms": 67.875,
+          "mean_ms": 68.054,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 875.1,
+          "mean_ms": 871.936,
+          "iterations": 100
+        }
+      },
+      "SLH_DSA_PURE_SHA2_128F": {
+        "keygen": {
+          "median_ms": 1.167,
+          "mean_ms": 1.177,
+          "iterations": 100
+        },
+        "sign": {
+          "median_ms": 25.664,
+          "mean_ms": 25.76,
+          "iterations": 100
+        }
+      }
+    },
+    "wireformat": {
+      "default": {
+        "encode_full": {
+          "median_ms": 0.002,
+          "mean_ms": 0.002,
+          "iterations": 100
+        },
+        "decode_full": {
+          "median_ms": 0.003,
+          "mean_ms": 0.003,
+          "iterations": 100
+        }
+      }
+    }
+  },
+  "total_instances_tested": 13,
+  "total_solvers_tested": 1,
+  "benchmark_cards": [
+    "bench_core_ops_2026-10-13.json"
+  ],
+  "run_files": [
+    "benchmarks/bench_core_ops_2026-10-13.json"
+  ]
+}
