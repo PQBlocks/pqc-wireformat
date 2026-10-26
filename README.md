@@ -7,7 +7,7 @@ A small, length-prefixed binary frame (`PQCWF1`) that carries an ML-KEM cipherte
 **Standards involved:** the primitives are FIPS 203 (ML-KEM), FIPS 204 (ML-DSA) and FIPS 205 (SLH-DSA). This package does not implement them: it calls **liboqs** through **liboqs-python**. X25519 and Ed25519 come from **pyca/cryptography**. The frame format is this package's own and is not an IETF or NIST format.
 
 ```bash
-pip install pqblocks-wire        # needs the liboqs shared library, see "Requirements"
+pip install git+https://github.com/PQBlocks/pqc-wireformat        # needs the liboqs shared library, see "Requirements"
 ```
 
 ```python
@@ -41,7 +41,7 @@ print(ss_sender == ss_receiver, received.payload)                    # True b'he
   - components above the largest FIPS sizes;
   - trailing bytes.
 - **Maintained primitives only.** Every primitive is delegated to liboqs or pyca. No cryptographic algorithm is re-implemented here.
-- **Honest test record:** 219 tests (218 pass, 1 skipped), with 98 % statement coverage. [TESTING.md](TESTING.md) says plainly what the tests do **not** check. In particular, no test compares this package's output with official NIST/Wycheproof vectors.
+- **Honest test record:** 219 tests (209 pass, 10 skipped), with 98 % statement coverage. With the official vector corpus configured (`PQBLOCKS_VECTORS`), 218 pass and 1 is skipped: the ML-KEM and SLH-DSA tests then compare this package's outputs with the NIST ACVP vectors. [TESTING.md](TESTING.md) says plainly what the tests do **not** check; in particular, no ML-DSA output is compared with a vector.
 
 ## Usage
 
@@ -101,11 +101,11 @@ Real signatures from the code. Everything is importable from `pqblocks_wire`.
 | `hybrid_key_exchange(...)` | **Test helper.** It runs both sides with one party's keys. |
 | `mlkem_test_all_operations()`, `mldsa_test_all_operations()`, `slhdsa_test_all_operations()`, `hybrid_test_basic_operations()` | Printing self-tests |
 
-`pqblocks_wire.lane_root_mlkem` is a byte-for-byte duplicate of `pqblocks_wire.mlkem`, kept because the test suite imports it.
+`pqblocks_wire.lane_root_mlkem` is an older, smaller copy of `pqblocks_wire.mlkem` (230 vs 351 lines), kept because the test suite imports it. Do not use it.
 
 ## Limitations
 
-- **No official-vector conformance testing.** The test suite never compares this package's outputs with NIST ACVP or Wycheproof vectors; details are in [TESTING.md](TESTING.md). Correctness of the primitives rests on liboqs and pyca, which publish their own test results.
+- **Partial official-vector testing, off by default.** The vector corpora are not shipped. With `PQBLOCKS_VECTORS` set, ML-KEM key generation, encapsulation and decapsulation are compared byte for byte with the ACVP FIPS 203 vectors, and the SLH-DSA wrapper is run on the ACVP FIPS 205 external/pure vectors with an empty context (36 of the signing and verification vectors, plus all 120 key-generation vectors). SLH-DSA signatures are not compared byte for byte (liboqs signs with fresh randomness), and no ML-DSA output is compared with any vector. Details are in [TESTING.md](TESTING.md).
 - **Hybrid secret is a plain hash combiner:**
   - it has no domain-separation label;
   - it does not bind the ciphertext or the public keys;

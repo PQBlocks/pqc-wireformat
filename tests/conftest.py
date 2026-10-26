@@ -41,6 +41,27 @@ def list_official_sets(filt=""):
     return out
 
 
+def acvp_to_liboqs(parameter_set):
+    """ACVP parameter-set name -> liboqs pure SLH-DSA name, e.g. SLH-DSA-SHA2-128s -> SLH_DSA_PURE_SHA2_128S."""
+    prefix = "SLH-DSA-"
+    if not parameter_set.startswith(prefix):
+        raise ValueError("not an SLH-DSA parameter set: %r" % parameter_set)
+    return "SLH_DSA_PURE_" + parameter_set[len(prefix):].replace("-", "_").upper()
+
+
+def pure_empty_context_tests(groups):
+    """(liboqs name, test) for every external/pure SLH-DSA vector with an empty context.
+
+    The wrapper signs and verifies with the empty FIPS 205 context only, so only these vectors apply to it.
+    """
+    for g in groups:
+        if g.get("signatureInterface") != "external" or g.get("preHash") != "pure":
+            continue
+        for t in g.get("tests", []):
+            if t.get("context", "") == "":
+                yield acvp_to_liboqs(g["parameterSet"]), t
+
+
 def load_official_vectors(name):
     """All test groups of every corpus set whose name contains `name`; skips the test if no corpus is configured."""
     if not any(os.path.isdir(base) for base, _ in _roots()):

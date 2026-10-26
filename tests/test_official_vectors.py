@@ -1,19 +1,17 @@
-"""Official vector tests for PQC wire format compatibility - Check 3 (correctness) verification requirement.
+"""Official-vector tests (NIST ACVP-Server and C2SP Wycheproof JSON corpora; set PQBLOCKS_VECTORS).
 
-This test validates ML-KEM, ML-DSA, and SLH-DSA implementations against official 
-NIST ACVP test vectors and Wycheproof test sets to ensure compliance with 
-FIPS 203, FIPS 204, and FIPS 205.
-
-IMPORTANT: Tests must exercise product code (src/pqblocks_wire/ modules) not just 
-the verification tooling/liboqs directly. The the verification tooling.load() is used as an adapter layer to 
-provide test vector structure, but the actual operations must use the product code.
+- ML-KEM: key generation (liboqs seeded keygen), deterministic encapsulation and decapsulation through the
+  wrapper are compared byte for byte with the ACVP FIPS 203 vectors.
+- SLH-DSA: the wrapper's sign/verify run on the ACVP FIPS 205 external/pure vectors with an empty context;
+  ACVP names (SLH-DSA-SHA2-128s) are mapped to liboqs names (SLH_DSA_PURE_SHA2_128S).
+- ML-DSA: only the presence and size of the Wycheproof sets are checked; no ML-DSA output is compared.
 """
 
 import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from .conftest import load_official_vectors, list_official_sets
+from .conftest import load_official_vectors, list_official_sets, acvp_to_liboqs, pure_empty_context_tests
 
 # Import product code for ML-KEM
 try:
@@ -40,27 +38,43 @@ def _load_vectors(name):
 
 
 def test_mlkem_official_vectors():
-    """Test ML-KEM against NIST ACVP official vectors."""
-    # Load ML-KEM encapsulation/decapsulation test vectors
-    kem_groups = _load_vectors('ML-KEM-encapDecap-FIPS203')
+    """ML-KEM outputs compared byte for byte with the NIST ACVP FIPS 203 vectors."""
+    from pqblocks_wire.mlkem import MLKEMWrapper
+    import oqs
 
-    assert len(kem_groups) > 0, "No ML-KEM test vectors loaded"
+    keygen = _load_vectors('ML-KEM-keyGen-FIPS203')
+    compared = 0
+    for group in keygen:
+        for t in group['tests']:
+            # Backend check: liboqs seeded key generation with seed d || z must give the vector's ek and dk.
+            kem = oqs.KeyEncapsulation(group['parameterSet'])
+            ek = kem.generate_keypair_seed(bytes.fromhex(t['d'] + t['z']))
+            assert ek == bytes.fromhex(t['ek']), "ek mismatch, tcId %s" % t['tcId']
+            assert kem.export_secret_key() == bytes.fromhex(t['dk']), "dk mismatch, tcId %s" % t['tcId']
+            compared += 1
+    assert compared == sum(len(g['tests']) for g in keygen) >= 75, compared
 
-    total_tests = sum(len(group.get('tests', [])) for group in kem_groups)
-    assert total_tests >= 165, f"Expected 165+ ML-KEM test cases, got {total_tests}"
-
-    # Also test keygen vectors
-    kem_keygen_groups = _load_vectors('ML-KEM-keyGen-FIPS203')
-    total_keygen_tests = sum(len(group.get('tests', [])) for group in kem_keygen_groups)
-    assert total_keygen_tests >= 75, f"Expected 75+ ML-KEM keygen test cases, got {total_keygen_tests}"
-
-    # Verify product code works with test vectors: generate keypair and encapsulate/decap
-    if MLKEM_AVAILABLE:
-        # Test with a sample keypair
-        pk, sk = generate_mlkem_keypair('ML-KEM-512')
-        ct, ss = encapsulate_mlkem(pk, 'ML-KEM-512')
-        ss_decapped = decapsulate_mlkem(sk, ct, 'ML-KEM-512')
-        assert ss == ss_decapped, "Product code roundtrip should work"
+    groups = _load_vectors('ML-KEM-encapDecap-FIPS203')
+    encaps = decaps = 0
+    for group in groups:
+        ps, fn = group['parameterSet'], group['function']
+        for t in group['tests']:
+            if fn == 'encapsulation':
+                # Product code: deterministic encapsulation with the vector's m.
+                c, k = MLKEMWrapper.encapsulate_kat(bytes.fromhex(t['ek']), ps, bytes.fromhex(t['m']))
+                assert c == bytes.fromhex(t['c']), "c mismatch, tcId %s" % t['tcId']
+                assert k == bytes.fromhex(t['k']), "k mismatch, tcId %s" % t['tcId']
+                encaps += 1
+            if fn in ('encapsulation', 'decapsulation'):
+                # Product code: decapsulation, including implicit rejection of the invalid ciphertexts.
+                k = decapsulate_mlkem(bytes.fromhex(t['dk']), bytes.fromhex(t['c']), ps)
+                assert k == bytes.fromhex(t['k']), "decapsulated k mismatch, tcId %s" % t['tcId']
+                decaps += 1
+    # The key-check groups have no counterpart in the wrapper and are not run.
+    n_enc = sum(len(g['tests']) for g in groups if g['function'] == 'encapsulation')
+    n_dec = sum(len(g['tests']) for g in groups if g['function'] == 'decapsulation')
+    assert n_enc >= 75 and n_dec >= 30, (n_enc, n_dec)
+    assert (encaps, decaps) == (n_enc, n_enc + n_dec), (encaps, decaps)
 
 
 def test_mldsa_official_vectors():
@@ -85,74 +99,42 @@ def test_mldsa_official_vectors():
 
 
 def test_slhdsa_official_vectors():
-    """Test SLH-DSA against FIPS 205 official vectors."""
-    # Load and test SLH-DSA keygen vectors
-    slhda_keygen_groups = _load_vectors('SLH-DSA-keyGen-FIPS205')
-    total_keygen_tests = sum(len(group.get('tests', [])) for group in slhda_keygen_groups)
-    assert total_keygen_tests >= 100, f"Expected 100+ SLH-DSA keygen test cases, got {total_keygen_tests}"
+    """SLH-DSA vectors (ACVP FIPS 205, external/pure, empty context) run through the product wrapper."""
+    W = SLHDSASignatureWrapper
+    msg = b"PQBlocks SLH-DSA vector check"
 
-    # Test key generation against official vectors using deterministic seed methods
-    for group in slhda_keygen_groups:
-        if group.get('parameterSet') not in ['SLH_DSA_PURE_SHA2_128S', 'SLH_DSA_PURE_SHA2_128F',
-            'SLH_DSA_PURE_SHA2_192S', 'SLH_DSA_PURE_SHA2_192F',
-            'SLH_DSA_PURE_SHA2_256S', 'SLH_DSA_PURE_SHA2_256F',
-            'SLH_DSA_PURE_SHAKE_128S', 'SLH_DSA_PURE_SHAKE_128F',
-            'SLH_DSA_PURE_SHAKE_192S', 'SLH_DSA_PURE_SHAKE_192F',
-            'SLH_DSA_PURE_SHAKE_256S', 'SLH_DSA_PURE_SHAKE_256F']:
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            seed = bytes.fromhex(test['seed'])
-            pk, sk = SLHDSASignatureWrapper._keygen_from_seed(group['parameterSet'], seed)
-            assert len(pk) == SLHDSASignatureWrapper.length_public_key(group['parameterSet'])
-            assert len(sk) == SLHDSASignatureWrapper.length_secret_key(group['parameterSet'])
+    # keyGen: sk must be SK.seed || SK.prf || PK.seed || PK.root and pk = PK.seed || PK.root (FIPS 205 Alg. 18);
+    # the wrapper must sign with the vector sk so that the vector pk verifies (one test per parameter set:
+    # the "s" sets sign slowly).
+    keygen = _load_vectors('SLH-DSA-keyGen-FIPS205')
+    sets = 0
+    for group in keygen:
+        name = acvp_to_liboqs(group['parameterSet'])
+        for i, t in enumerate(group['tests']):
+            sk, pk = bytes.fromhex(t['sk']), bytes.fromhex(t['pk'])
+            assert sk == bytes.fromhex(t['skSeed'] + t['skPrf']) + pk, "sk layout, tcId %s" % t['tcId']
+            assert pk[:len(pk) // 2] == bytes.fromhex(t['pkSeed']), "pk layout, tcId %s" % t['tcId']
+            if i == 0:
+                assert W.verify(msg, W.sign(msg, sk, name), pk, name), "tcId %s" % t['tcId']
+                sets += 1
+    assert sets == 12, sets
 
-    # Load and test SLH-DSA signature generation vectors
-    slhda_siggen_groups = _load_vectors('SLH-DSA-sigGen-FIPS205')
-    total_siggen_tests = sum(len(group.get('tests', [])) for group in slhda_siggen_groups)
-    assert total_siggen_tests >= 600, f"Expected 600+ SLH-DSA sigGen test cases, got {total_siggen_tests}"
+    # sigGen: every vector signature verifies under the vector pk, and a fresh wrapper signature made with the
+    # vector sk verifies too. liboqs signs with fresh randomness, so signatures are not compared byte for byte.
+    siggen = list(pure_empty_context_tests(_load_vectors('SLH-DSA-sigGen-FIPS205')))
+    for name, t in siggen:
+        m, sk, pk = bytes.fromhex(t['message']), bytes.fromhex(t['sk']), bytes.fromhex(t['pk'])
+        assert W.verify(m, bytes.fromhex(t['signature']), pk, name), "tcId %s" % t['tcId']
+        assert W.verify(m, W.sign(m, sk, name), pk, name), "tcId %s" % t['tcId']
+    assert len(siggen) == 24, len(siggen)
 
-    # Test signature generation against official vectors
-    for group in slhda_siggen_groups:
-        if group.get('parameterSet') not in ['SLH_DSA_PURE_SHA2_128S', 'SLH_DSA_PURE_SHA2_128F',
-            'SLH_DSA_PURE_SHA2_192S', 'SLH_DSA_PURE_SHA2_192F',
-            'SLH_DSA_PURE_SHA2_256S', 'SLH_DSA_PURE_SHAKE_128S',
-            'SLH_DSA_PURE_SHAKE_192S', 'SLH_DSA_PURE_SHAKE_192F',
-            'SLH_DSA_PURE_SHAKE_256S', 'SLH_DSA_PURE_SHAKE_256F']:
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            message = bytes.fromhex(test['msg'])
-            seed = bytes.fromhex(test['seed'])
-            pk = bytes.fromhex(test['pk'])
-            signature = SLHDSASignatureWrapper._sign_from_seed(group['parameterSet'], message, seed, pk)
-            sig_vec = bytes.fromhex(test['sig'])
-            assert signature == sig_vec, f"Signature mismatch for {group['parameterSet']}"
-
-    # Load and test SLH-DSA signature verification vectors
-    slhda_sigver_groups = _load_vectors('SLH-DSA-sigVer-FIPS205')
-    total_sigver_tests = sum(len(group.get('tests', [])) for group in slhda_sigver_groups)
-    assert total_sigver_tests >= 500, f"Expected 500+ SLH-DSA sigVer test cases, got {total_sigver_tests}"
-
-    # Test signature verification against official vectors
-    for group in slhda_sigver_groups:
-        if group.get('parameterSet') not in ['SLH_DSA_PURE_SHA2_128S', 'SLH_DSA_PURE_SHA2_128F',
-            'SLH_DSA_PURE_SHA2_192S', 'SLH_DSA_PURE_SHA2_192F',
-            'SLH_DSA_PURE_SHA2_256S', 'SLH_DSA_PURE_SHAKE_128S',
-            'SLH_DSA_PURE_SHAKE_192S', 'SLH_DSA_PURE_SHAKE_192F',
-            'SLH_DSA_PURE_SHAKE_256S', 'SLH_DSA_PURE_SHAKE_256F']:
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            message = bytes.fromhex(test['msg'])
-            signature = bytes.fromhex(test['sig'])
-            pk = bytes.fromhex(test['pk'])
-            seed = bytes.fromhex(test['seed'])
-            # Derive key from seed
-            derived_pk, derived_sk = SLHDSASignatureWrapper._keygen_from_seed(group['parameterSet'], seed)
-            # Verify with derived key
-            result = SLHDSASignatureWrapper.verify(message, signature, derived_pk, group['parameterSet'])
-            assert result, f"Signature verification failed for {group['parameterSet']}"
+    # sigVer: the wrapper's verdict must equal testPassed, for valid and invalid signatures.
+    sigver = list(pure_empty_context_tests(_load_vectors('SLH-DSA-sigVer-FIPS205')))
+    for name, t in sigver:
+        got = W.verify(bytes.fromhex(t['message']), bytes.fromhex(t['signature']), bytes.fromhex(t['pk']), name)
+        assert got == t['testPassed'], "tcId %s" % t['tcId']
+    assert len(sigver) == 12, len(sigver)
+    assert any(not t['testPassed'] for _, t in sigver)
 
 
 def test_vector_loading_infrastructure():

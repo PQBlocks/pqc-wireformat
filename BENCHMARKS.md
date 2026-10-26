@@ -60,15 +60,18 @@ The tables below are copied from the summary. All 60 summary values (30 medians,
 ## Losing cases and what to read into these numbers
 
 - **SLH-DSA "s" variants are slow.** Signing takes 0.5 to 1 s per signature on this CPU. SHA2-128f signs in about 26 ms but gives a 17,088-byte signature. If you need the small variants at volume, budget for it.
-- **The ML-DSA sign means sit 17-25 % above the medians.** This is ML-DSA's rejection-sampling loop: some signatures need more iterations. Use the mean for throughput planning.
+- **The ML-DSA sign means sit 17-26 % above the medians.** This is ML-DSA's rejection-sampling loop: some signatures need more iterations. Use the mean for throughput planning.
 - **No verify timings** (ML-DSA, SLH-DSA, composite) were collected, and no hybrid or composite timings either. They are "not measured".
 - **Not measured:** the overhead of the wrapper against calling liboqs directly, and any comparison with other Python PQC packages. A 20 to 30 µs ML-KEM call does not separate liboqs time from Python call overhead.
 - **One machine, one run, no confidence intervals.** The second runs of ML-KEM-512 and ML-DSA-44 show run-to-run spread of about 5-10 % on the medians.
 
 ## Reproducing
 
+The benchmarks are not in the wheel; run them from a checkout:
+
 ```bash
-pip install pqblocks-wire
+git clone https://github.com/PQBlocks/pqc-wireformat && cd pqc-wireformat
+pip install .
 python benchmarks/bench_core_ops.py     # writes bench/runs/bench_core_ops_<time>.json and bench/BENCHMARK-SUMMARY.json
 ```
 

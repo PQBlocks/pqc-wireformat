@@ -4,7 +4,7 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-from .conftest import load_official_vectors
+from .conftest import load_official_vectors, acvp_to_liboqs, pure_empty_context_tests
 import pytest
 from pqblocks_wire.slhdsa import (
     SLHDSASignatureWrapper,
@@ -147,65 +147,42 @@ def test_slhdsa_wrong_key_rejection():
     result = SLHDSASignatureWrapper.verify(message, signature, pk_wrong, 'SLH_DSA_PURE_SHA2_128S')
     assert not result, "Signature should be rejected with wrong public key"
 
+_P128S = 'SLH_DSA_PURE_SHA2_128S'
+
+
 def test_slhdsa_128s_official_vectors_keygen():
-    """Test SLH-DSA-128s key generation against official test vectors."""
-    groups = load_official_vectors('SLH-DSA-keyGen-FIPS205')
-    for group in groups:
-        if group.get('parameterSet') != 'SLH_DSA_PURE_SHA2_128S':
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            # Use the seed from the test vector to generate deterministic key pair
-            seed = bytes.fromhex(test['seed'])
-            # Note: Our wrapper currently does not support deterministic key generation from seed.
-            # We will skip this test for now and rely on the randomized keygen test above.
-            # In a production wrapper, we might want to add seed support, but for now we note that
-            # the vector test is for deterministic generation and we are not implementing that.
-            # We will instead test that our key pair lengths are correct.
-            pk, sk = SLHDSASignatureWrapper.keygen('SLH_DSA_PURE_SHA2_128S')
-            assert len(pk) == SLHDSASignatureWrapper.length_public_key('SLH_DSA_PURE_SHA2_128S')
-            assert len(sk) == SLHDSASignatureWrapper.length_secret_key('SLH_DSA_PURE_SHA2_128S')
-            # We break after first test because we are not testing deterministic generation
-            break
-        break
+    """ACVP SLH-DSA-SHA2-128s keyGen: sk/pk layout per FIPS 205, and the wrapper signs with the vector sk."""
+    groups = [g for g in load_official_vectors('SLH-DSA-keyGen-FIPS205') if acvp_to_liboqs(g['parameterSet']) == _P128S]
+    tests = [t for g in groups for t in g['tests']]
+    assert tests, "no SLH-DSA-SHA2-128s keyGen vectors"
+    for t in tests:
+        sk, pk = bytes.fromhex(t['sk']), bytes.fromhex(t['pk'])
+        assert sk == bytes.fromhex(t['skSeed'] + t['skPrf']) + pk
+        assert pk[:16] == bytes.fromhex(t['pkSeed'])
+    sk, pk = bytes.fromhex(tests[0]['sk']), bytes.fromhex(tests[0]['pk'])
+    msg = b"PQBlocks SLH-DSA-SHA2-128s"
+    assert SLHDSASignatureWrapper.verify(msg, SLHDSASignatureWrapper.sign(msg, sk, _P128S), pk, _P128S)
+
 
 def test_slhdsa_128s_official_vectors_sign():
-    """Test SLH-DSA-128s signature generation against official test vectors."""
-    groups = load_official_vectors('SLH-DSA-sigGen-FIPS205')
-    for group in groups:
-        if group.get('parameterSet') != 'SLH_DSA_PURE_SHA2_128S':
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            message = bytes.fromhex(test['msg'])
-            sk = bytes.fromhex(test['sk'])
-            pk = bytes.fromhex(test['pk'])
-            # Sign with our wrapper
-            signature = SLHDSASignatureWrapper.sign(message, sk, 'SLH_DSA_PURE_SHA2_128S')
-            # Compare with vector
-            sig_vec = bytes.fromhex(test['sig'])
-            assert signature == sig_vec, f"Signature mismatch for SLH-DSA-128s"
-            # We break after first test to avoid excessive output
-            break
-        break
+    """ACVP SLH-DSA-SHA2-128s sigGen (pure, empty context): the vector signature verifies, and so does a
+    wrapper signature made with the vector sk. liboqs signs with fresh randomness, so bytes are not compared."""
+    tests = [t for n, t in pure_empty_context_tests(load_official_vectors('SLH-DSA-sigGen-FIPS205')) if n == _P128S]
+    assert tests, "no SLH-DSA-SHA2-128s sigGen vectors with an empty context"
+    for t in tests:
+        m, sk, pk = bytes.fromhex(t['message']), bytes.fromhex(t['sk']), bytes.fromhex(t['pk'])
+        assert SLHDSASignatureWrapper.verify(m, bytes.fromhex(t['signature']), pk, _P128S)
+        assert SLHDSASignatureWrapper.verify(m, SLHDSASignatureWrapper.sign(m, sk, _P128S), pk, _P128S)
+
 
 def test_slhdsa_128s_official_vectors_verify():
-    """Test SLH-DSA-128s signature verification against official test vectors."""
-    groups = load_official_vectors('SLH-DSA-sigVer-FIPS205')
-    for group in groups:
-        if group.get('parameterSet') != 'SLH_DSA_PURE_SHA2_128S':
-            continue
-        tests = group.get('tests', [])
-        for test in tests:
-            message = bytes.fromhex(test['msg'])
-            signature = bytes.fromhex(test['sig'])
-            pk = bytes.fromhex(test['pk'])
-            # Verify with our wrapper
-            result = SLHDSASignatureWrapper.verify(message, signature, pk, 'SLH_DSA_PURE_SHA2_128S')
-            assert result, f"Signature verification failed for SLH-DSA-128s"
-            # We break after first test to avoid excessive output
-            break
-        break
+    """ACVP SLH-DSA-SHA2-128s sigVer (pure, empty context): the wrapper's verdict equals testPassed."""
+    tests = [t for n, t in pure_empty_context_tests(load_official_vectors('SLH-DSA-sigVer-FIPS205')) if n == _P128S]
+    assert tests, "no SLH-DSA-SHA2-128s sigVer vectors with an empty context"
+    for t in tests:
+        got = SLHDSASignatureWrapper.verify(bytes.fromhex(t['message']), bytes.fromhex(t['signature']),
+                                            bytes.fromhex(t['pk']), _P128S)
+        assert got == t['testPassed'], "tcId %s" % t['tcId']
 
 # NEW TESTS FOR COVERAGE GAPS - Error handling and length helpers
 

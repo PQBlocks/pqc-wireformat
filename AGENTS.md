@@ -3,7 +3,7 @@
 Guidance for AI coding agents using this package.
 
 - **Use it for:** packing an ML-KEM ciphertext, ML-DSA / SLH-DSA signatures and a payload into one `PQCWF1` frame and parsing it back; and quick ML-KEM / ML-DSA / SLH-DSA calls over liboqs.
-- **Install:** `pip install pqblocks-wire`. The liboqs shared library must be present; set `OQS_LIB_PATH=/path/to/liboqs.so` if it is not on the loader path.
+- **Install:** `pip install git+https://github.com/PQBlocks/pqc-wireformat`. The liboqs shared library must be present; set `OQS_LIB_PATH=/path/to/liboqs.so` if it is not on the loader path.
 - **Correct import:** `from pqblocks_wire import encode_wire_format, decode_wire_format, WireFormatError`
 - **Calls:**
   - `frame = encode_wire_format(mlkem_ciphertext=ct, mldsa_signature=sig, payload=data)`
@@ -18,4 +18,4 @@ Do not:
 - call `encapsulate_kat_mlkem`, `hybrid_key_exchange`, or the private `_keygen_from_seed` / `_sign_from_seed` / `_verify_from_seed` helpers in production code;
 - pass secret keys of the wrong length (this causes an out-of-bounds read in liboqs), or log `HybridPrivateKey` / `CompositePrivateKey` objects (their `repr` shows the secret bytes);
 - present the hybrid secret as X-Wing or as TLS-compatible, or the composite signature as interoperable with the IETF composite draft;
-- describe this package as FIPS-validated, or as tested against official NIST vectors. It is neither.
+- describe this package as FIPS-validated (it is not), or as fully tested against official NIST vectors: only the ML-KEM and part of the SLH-DSA ACVP vectors are checked, and only when `PQBLOCKS_VECTORS` is set (see TESTING.md).

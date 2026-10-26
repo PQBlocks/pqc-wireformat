@@ -56,5 +56,5 @@ Read the limitations first:
 
   The `PQCWF1` frame is understood only by this package.
 - **You need a validated module (FIPS 140-3 / CMVP).** This package is not validated, and neither is liboqs.
-- **You need a proof that outputs match the NIST vectors.** This package's tests do not provide one. Rely on liboqs' own test results, or run the ACVP vectors yourself.
+- **You need a proof that every output matches the NIST vectors.** The opt-in vector tests cover ML-KEM (byte for byte) and the empty-context, pure SLH-DSA vectors; they do not cover ML-DSA, SLH-DSA with a context or pre-hash, or byte-exact SLH-DSA signatures. Rely on liboqs' own test results for the rest.
 - **You need a hardened, constant-time, zeroizing secret-key API in Python.** See [SECURITY_NOTES.md](SECURITY_NOTES.md).
